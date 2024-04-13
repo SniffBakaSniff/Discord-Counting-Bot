@@ -47,7 +47,7 @@ def create_connection(db_file):
     return conn
 
 def main():
-    database = r"channels.db"
+    database = r"Subi Counting/channels.db"
 
     conn = create_connection(database)
     if conn is not None:
@@ -82,6 +82,20 @@ def create_table(conn):
     except sqlite3.Error as e:
         print(e)
 
+def update_channel(conn, server_id, count_type, channel_id):
+    """
+    Update the counting channel for the specified type in the database.
+    """
+    sql = """ UPDATE channels
+              SET channel_id = ?
+              WHERE server_id = ? AND type = ?"""
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, (channel_id, server_id, count_type))
+        conn.commit()
+        print("Channel Updated!")
+    except sqlite3.Error as e:
+        print("SQLite error:", e)
 
 def insert_channel(conn, server_id, type, channel_id):
     sql = ''' INSERT OR REPLACE INTO channels(server_id, type, channel_id)
@@ -225,56 +239,56 @@ async def on_message(message):
                         COUNTING_COOLDOWN = {}  # Reset all cooldowns
                         update_current_count(conn, server_id, count_type, 0)
 
-
 #Command to set counting channels.
-@client.hybrid_command(brief="Set the counting channels. Types: Decimal or Binary")
+@client.hybrid_command(brief="Set or change the counting channels. Types: Decimal or Binary")
 @has_permission()
 async def setup(ctx: commands.Context, type: str, channel: discord.TextChannel):
     database = r"channels.db"
     conn = create_connection(database)
 
     if conn is None:
-        
         await ctx.send("Error: Could not establish a connection to the database.", ephemeral=True)
         return
 
     try:
-        
         server_id = ctx.guild.id
         
         if type.lower() == 'decimal':
-            if get_channel(conn, server_id, 'decimal'):
-                await ctx.send("Decimal counting channel is already set for this server.", ephemeral=True)
-                return
-            insert_channel(conn, server_id, 'decimal', channel.id)
-            await ctx.send(f"Counting channel set to {channel.mention} for decimal counting.", ephemeral=True)
+            current_channel_id = get_channel(conn, server_id, 'decimal')
+            if current_channel_id:
+                update_channel(conn, server_id, 'decimal', channel.id)
+                await ctx.send(f"Counting channel updated to {channel.mention} for decimal counting.", ephemeral=True)
+            else:
+                insert_channel(conn, server_id, 'decimal', channel.id)
+                await ctx.send(f"Counting channel set to {channel.mention} for decimal counting.", ephemeral=True)
             update_current_count(conn, server_id, 'decimal', 0)
         
         elif type.lower() == 'binary':
-            
-            if get_channel(conn, server_id, 'binary'):
-                await ctx.send("Binary counting channel is already set for this server.", ephemeral=True)
-                return
-            
-            insert_channel(conn, server_id, 'binary', channel.id)
-            await ctx.send(f"Counting channel set to {channel.mention} for binary counting.", ephemeral=True)
-            
+            current_channel_id = get_channel(conn, server_id, 'binary')
+            if current_channel_id:
+                update_channel(conn, server_id, 'binary', channel.id)
+                await ctx.send(f"Counting channel updated to {channel.mention} for binary counting.", ephemeral=True)
+            else:
+                insert_channel(conn, server_id, 'binary', channel.id)
+                await ctx.send(f"Counting channel set to {channel.mention} for binary counting.", ephemeral=True)
             update_current_count(conn, server_id, 'binary', 0)
         
         else:
             await ctx.send("Invalid type. Please use 'decimal' or 'binary'.", ephemeral=True)
+        
+        counting_channels = {
+            'decimal': get_channel(conn, server_id, 'decimal'),
+            'binary': get_channel(conn, server_id, 'binary')
+        }
+        COUNTINGCHANNELS[server_id] = counting_channels
     
     except sqlite3.Error as e:
-        
         print("SQLite error:", e)
         await ctx.send("An error occurred while accessing the database.", ephemeral=True)
     
     finally:
-        
         if conn:
             conn.close()
-
-
 
 @client.hybrid_command(brief="Learn Command")
 async def learn(ctx: commands.Context):
