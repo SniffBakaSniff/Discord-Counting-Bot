@@ -239,6 +239,49 @@ async def on_message(message):
                         COUNTING_COOLDOWN = {}  # Reset all cooldowns
                         update_current_count(conn, server_id, count_type, 0)
 
+
+@client.hybrid_command(name='set_count')
+@commands.has_permissions(administrator=True)
+async def set_count(ctx, type: str, count: int):
+    database = r'channels.db'
+    conn = create_connection(database)
+    if conn is None:
+        await ctx.send("Error: Could not establish a connection to the database.", ephemeral=True)
+        return
+
+    try:
+        server_id = ctx.guild.id
+
+        if type.lower() == 'decimal':
+            if count is None:
+                await ctx.send('Please set a number!', ephemeral=True)
+                return
+            if not isinstance(count, int):
+                await ctx.send('Please set a valid number!', ephemeral=True)
+                return
+            update_current_count(conn, server_id, type.lower(), count)
+            await ctx.send(f"Current count updated to: {count}")
+        elif type.lower() == 'binary':
+            if count is None:
+                await ctx.send('Please set a number!', ephemeral=True)
+                return
+            if not isinstance(count, int):
+                await ctx.send('Please set a valid number!', ephemeral=True)
+                return
+            update_current_count(conn, server_id, type.lower(), count)
+            await ctx.send(f"Current count updated to: {count}")
+
+        else:
+            await ctx.send('Invalid type! Please specify either "decimal" or "binary".', ephemeral=True)
+
+    except sqlite3.Error as e:
+        print("SQLite error:", e)
+        await ctx.send("An error occurred while accessing the database.", ephemeral=True)
+    finally:
+        conn.close()
+
+
+
 #Command to set counting channels.
 @client.hybrid_command(brief="Set or change the counting channels. Types: Decimal or Binary")
 @has_permission()
