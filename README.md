@@ -1,1 +1,1 @@
-This is absaloute the worst thing ever and i should never code again
+This is absolutely the worst thing ever and i should never code again
